@@ -20,10 +20,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-//第一级配置器
+/*--------------------------------第一级配置器-----------------------------*/
 //直接用c语言的malloc，realloc和free来控制内存
-//源码的__inst这个参数完全没派上用场，去掉试试看？
+//源码的__inst这个参数完全没派上用场，去掉试试看？FIXME
 //成员都是static的，因为函数都和实例无关，这样做handler是所有实例共有的，设置一次就可以了
+//感觉就是把class当namespace用了
 class __malloc_alloc_template {
 
 private:
@@ -54,7 +55,7 @@ public:
         return __result;
     }
     //处理内存不足的handler，由用户设定，没有设定就是NULL
-    //函数指针的写法太复杂了，考虑用c++11的Functor代替
+    //FIXME 函数指针的写法太复杂了，考虑用c++11的Functor代替
     static void (* __set_malloc_handler(void (*__f)()))()
     {
         void (* __old)() = __malloc_alloc_oom_handler;
@@ -89,6 +90,121 @@ void *__malloc_alloc_template::oom_realloc(void *p, size_t n) {
         if (__result) return(__result);
     }
 }
+typedef __malloc_alloc_template malloc_alloc;
+/*--------------------------------第一级配置器-----------------------------*/
+/*--------------------------------第二级配置器-----------------------------*/
+//如果不考虑多线程的话，是否二级配置器也可以做成不是template FIXME
+
+enum {_ALIGN = 8}; //小区快的大小，申请大小会被调成8的倍数
+enum {_MAX_BYTES = 128};//大于这个值就直接用一级配置器了
+enum {_NFREELISTS = 16};//free list的个数
+class _default_alloc_template{
+private:
+    static size_t round_up(size_t bytes){
+        return ((bytes + _ALIGN - 1 ) & ~(_ALIGN -1));//加7，然后砍掉尾巴
+    }
+    //这个即当做链表的节点，又当做allocate的返回值，内容就是一个地址，两种解读方式，很精髓
+    union obj{
+        union obj* fress_list_link;
+        char chlien_date[1];
+    };
+    //注意这是指向数组的指针，而不是一个数组，fress_list类型其实是obj**
+    static obj* volatile free_list[_NFREELISTS];
+    //返回bytes对应的freelist的序号
+    static size_t freelist_index(size_t bytes){
+        return ((bytes + _ALIGN -1)/_ALIGN -1);
+    }
+    //当fress_list没有可用的空间时使用， 返回大小为n的空间作为allocate的返回值
+    //并且分配大小为n的空间给fress_list
+    static void * refill(size_t n);
+    static char * chunk_alloc(size_t size ,int &nobjs );
+    static char * start_memory_poll;
+    static char * end_memory_poll;
+public:
+    static void * allocate(size_t n);
+    static void dealocate(void *p,size_t n);
+    static void * reallocate(void *p, size_t old_sz,size_t new_sz);
+
+};
+
+static void * _default_alloc_template::allocate(size_t n) {
+    obj * volatile *my_free_list;//FIXME 为什么要volatile？
+    obj *result;
+    if(n>_MAX_BYTES){//大于128直接用第一级配置
+        return __malloc_alloc_template::allocate(n);
+    }
+    my_free_list = free_list + freelist_index(n);
+    result = *my_free_list;
+    if(result == nullptr){//free_list没有现成的空间就用refill给free_list填充
+        //每次默认填充round_up(n)的20倍的空间给free_list
+        void *r = refill(round_up(n));
+        return  r;
+    }
+    //如果有空间就取出链表头部返回
+    *my_free_list = result->fress_list_link;
+    return  result;
+}
+
+void _default_alloc_template::dealocate(void *p, size_t n) {
+    if(n>_MAX_BYTES){
+        //大于128
+        __malloc_alloc_template::deallocate(p,n);
+        return;
+    }
+    //归还的空间重新放到链表头部
+    obj * volatile *my_free_list = free_list + freelist_index(n);
+    obj*  q = static_cast<obj*>(p);
+    q->fress_list_link = *my_free_list;
+    *my_free_list = q;
+}
+
+void *_default_alloc_template::refill(size_t n) {
+    int nobjs = 20;//默认分配20倍的n给free_list;
+    char * chunk =_default_alloc_template::chunk_alloc(n,nobjs);//nobjs是个值—结果参数
+    if(nobjs ==1){//就申请到一个大小为n内存，就直接返回给调用者
+        return chunk;
+    }
+    //申请到一个以上大小为n的内存，就排进链表里面
+    obj * volatile * my_free_list = free_list + freelist_index(n);
+    //申请到的第一块空间是返回给用户的，第二块开始才装进链表
+    obj * result = static_cast<obj*> (chunk);
+    *my_free_list = static_cast<obj*>(chunk +n);//+n就是下一个块的地址头部了
+    obj * next = static_cast<obj*>(chunk +n);
+    obj * cur;
+    for(int i =1;;i++){
+        cur = next;
+        next = static_cast<obj*>(static_cast<char*>(next) +n);
+        if(nobjs -1 ==i){
+            cur->fress_list_link == nullptr;
+            break;
+        }
+        else{
+            cur->fress_list_link = next;
+        }
+    }
+    return result;
+}
+
+char *_default_alloc_template::chunk_alloc(size_t size, int &nobjs) {
+    char *result;
+    size_t need_bytes = size*nobjs;
+    size_t left_bytes = end_memory_poll - start_memory_poll;
+    if(left_bytes >= need_bytes){
+        //如果内存池空间足够就直接分配,不需要申请新内存了
+        result = start_memory_poll;
+        start_memory_poll += need_bytes;
+        return  result;
+    }
+    else if( left_bytes >=size){
+        //内存池剩余空间不够全部，但够分配一块
+    }else{
+        //内存池剩余空间小于一块size了
+    }
+
+}
+
+
+/*---------------------------------第二级配置器-----------------------------*/
 
 
 #endif //STL_STL_ALLOC_H
