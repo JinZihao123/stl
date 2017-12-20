@@ -100,16 +100,16 @@ enum {_MAX_BYTES = 128};//大于这个值就直接用一级配置器了
 enum {_NFREELISTS = 16};//free list的个数
 class _default_alloc_template{
 private:
-    static size_t round_up(size_t bytes){
-        return ((bytes + _ALIGN - 1 ) & ~(_ALIGN -1));//加7，然后砍掉尾巴
-    }
+
     //这个即当做链表的节点，又当做allocate的返回值，内容就是一个地址，两种解读方式，很精髓
     union obj{
         union obj* fress_list_link;
         char chlien_date[1];
     };
-    //注意这是指向数组的指针，而不是一个数组，fress_list类型其实是obj**
-    static obj* volatile free_list[_NFREELISTS];
+
+    static size_t round_up(size_t bytes){
+        return ((bytes + _ALIGN - 1 ) & ~(_ALIGN -1));//加7，然后砍掉尾巴
+    }
     //返回bytes对应的freelist的序号
     static size_t freelist_index(size_t bytes){
         return ((bytes + _ALIGN -1)/_ALIGN -1);
@@ -118,11 +118,20 @@ private:
     //并且分配大小为n的空间给fress_list
     static void * refill(size_t n);
     static char * chunk_alloc(size_t size ,int &nobjs );
-    static char * start_memory_poll;
-    static char * end_memory_poll;
+
+
+    //注意这是指向数组的指针，而不是一个数组，fress_list类型其实是obj**
+    static obj* volatile free_list[_NFREELISTS]=
+            {nullptr,nullptr,nullptr,nullptr,
+             nullptr,nullptr,nullptr,nullptr,
+             nullptr,nullptr,nullptr,nullptr,
+             nullptr,nullptr,nullptr,nullptr};
+    static char * start_memory_poll = nullptr;//内存池的起始点
+    static char * end_memory_poll = nullptr;//内存池的终点
+    static size_t heap_size = 0;
 public:
     static void * allocate(size_t n);
-    static void dealocate(void *p,size_t n);
+    static void deallocate(void *p, size_t n);
     static void * reallocate(void *p, size_t old_sz,size_t new_sz);
 
 };
@@ -145,7 +154,7 @@ static void * _default_alloc_template::allocate(size_t n) {
     return  result;
 }
 
-void _default_alloc_template::dealocate(void *p, size_t n) {
+void _default_alloc_template::deallocate(void *p, size_t n) {
     if(n>_MAX_BYTES){
         //大于128
         __malloc_alloc_template::deallocate(p,n);
@@ -175,7 +184,7 @@ void *_default_alloc_template::refill(size_t n) {
         cur = next;
         next = static_cast<obj*>(static_cast<char*>(next) +n);
         if(nobjs -1 ==i){
-            cur->fress_list_link == nullptr;
+            cur->fress_list_link = nullptr;
             break;
         }
         else{
@@ -186,6 +195,7 @@ void *_default_alloc_template::refill(size_t n) {
 }
 
 char *_default_alloc_template::chunk_alloc(size_t size, int &nobjs) {
+    //size必须是8的倍数
     char *result;
     size_t need_bytes = size*nobjs;
     size_t left_bytes = end_memory_poll - start_memory_poll;
@@ -197,14 +207,92 @@ char *_default_alloc_template::chunk_alloc(size_t size, int &nobjs) {
     }
     else if( left_bytes >=size){
         //内存池剩余空间不够全部，但够分配一块
+        nobjs = left_bytes * size;
+        need_bytes = nobjs * size;
+        result = start_memory_poll;
+        start_memory_poll += need_bytes;
+        return  result;
     }else{
         //内存池剩余空间小于一块size了
+        if(left_bytes >0){
+            //把内存池剩余的空间放到合适的free list上去，避免浪费
+            obj* volatile *my_free_list = free_list + freelist_index(left_bytes);
+            static_cast<obj*> (start_memory_poll)->fress_list_link = *my_free_list;
+            *my_free_list = static_cast<obj*>(start_memory_poll);
+        }
+        //至此，内存池里面没有任何内存了，准备重新分配
+
+        //内存池申请策略：heap_size初始值为0，每次成功申请了就heap_size+=bytes_to_get
+        //而bytes_to_get至少为heap_size的16倍
+        //也就是每次申请内存池空间，申请的容器都至少为上一次的16倍
+        size_t bytes_to_get = 2*need_bytes + round_up(heap_size>>4);
+        start_memory_poll = static_cast<char*>(malloc(bytes_to_get));
+        if(start_memory_poll == nullptr){
+            //申请失败的情况， 系统内存不足了
+            //策略是在free_list的比当前size大的节点里面寻找有没有不用的节点
+            //如果有，就取出链表的第一节拿来当做内存池（其实做多也就128bytes），
+            // 虽然少一点，好歹是申请到够这次用的内存池了
+            obj* volatile * my_free_list ;
+            obj* p;
+            for(int i = size;i<=_MAX_BYTES;i+=_ALIGN){
+                my_free_list = free_list + freelist_index(i);
+                p = *my_free_list;
+                if(p!=nullptr){
+                    *my_free_list = p->fress_list_link;
+                    start_memory_poll = static_cast<char*>(p);
+                    end_memory_poll = start_memory_poll + i;
+                    //现在内存池又有内存了，递归调用自己
+                    return  chunk_alloc(size,nobjs);
+                }
+            }
+            //运行到这里说明free_list里面都没有可用内存了，基本山穷水尽
+            //调用一级配置器，也许一级配置器的out of memory机制会有所处理
+            start_memory_poll = static_cast<char*>(__malloc_alloc_template::allocate(bytes_to_get);
+        }
+        heap_size += bytes_to_get;
+        end_memory_poll = start_memory_poll +bytes_to_get;
+        //现在内存池又有内存了，递归调用自己
+        return chunk_alloc(size,nobjs);
     }
 
 }
 
+void *_default_alloc_template::reallocate(void *p, size_t old_sz, size_t new_sz) {
+    //大于128bytes就直接realloc
+    //小于128bytes的自己分配新内存并拷贝数据
+    void* result;
+    size_t copy_sz;
 
+    if (old_sz > (size_t) _MAX_BYTES && new_sz > (size_t) _MAX_BYTES) {
+        return(realloc(p, new_sz));
+    }
+    if (round_up(old_sz) == round_up(new_sz)) return(p);
+    result = allocate(new_sz);
+    copy_sz = new_sz > old_sz? old_sz : new_sz;
+    memcpy(result, p, copy_sz);
+    deallocate(p, old_sz);
+    return(result);
+}
+
+typedef _default_alloc_template alloc;
 /*---------------------------------第二级配置器-----------------------------*/
-
+//把alloc封装成符合stl规范的模板
+template <class T,class Alloc>
+class simple_alloc{
+    static T* allocate(size_t n){
+        return n==0? nullptr: static_cast<T*>(Alloc::allocate(n*sizeof(T)));
+    }
+    static T* allocate(){
+        return static_cast<T*>(Alloc::allocate(sizeof(T)));
+    }
+    static void deallocate(T*p,size_t n){
+        if(n!=0){
+            Alloc::deallocate(p,n*sizeof(T));
+        }
+    }
+    static void deallocate(T*p){
+        Alloc::deallocate(p,sizeof(T));
+    }
+};
 
 #endif //STL_STL_ALLOC_H

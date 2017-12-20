@@ -3,4 +3,4 @@ project(STL)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_library(STL library.cpp library.h stl_alloc.h stl_iterator.h type_traits.h stl_construct.h)
+add_library(STL library.cpp library.h stl_alloc.h stl_iterator.h type_traits.h stl_construct.h stl_uninitialized.h)
