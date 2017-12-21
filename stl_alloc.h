@@ -279,6 +279,7 @@ typedef _default_alloc_template alloc;
 //把alloc封装成符合stl规范的模板
 template <class T,class Alloc>
 class simple_alloc{
+public:
     static T* allocate(size_t n){
         return n==0? nullptr: static_cast<T*>(Alloc::allocate(n*sizeof(T)));
     }
