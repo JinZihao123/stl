@@ -2,5 +2,8 @@ cmake_minimum_required(VERSION 3.9)
 project(STL)
 
 set(CMAKE_CXX_STANDARD 11)
-
-add_library(STL library.cpp library.h stl_alloc.h stl_iterator.h type_traits.h stl_construct.h stl_uninitialized.h stl_vector.h)
+add_library(mystl stl_alloc.h stl_iterator.h type_traits.h stl_construct.h stl_uninitialized.h stl_vector.h hello.cpp)
+#add_executable(test_all test/testall.cpp test/test.h test/vector_test.cpp)
+#target_link_libraries(test_all mystl)
+add_executable(test_vector  test/test.h test/vector_test.cpp)
+target_link_libraries(test_vector mystl)
