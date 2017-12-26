@@ -10,6 +10,7 @@
 #include "stl_iterator.h"
 #include "type_traits.h"
 #include "stl_construct.h"
+#include "stl_algobase.h"
 namespace mystl {
     template<class ForwardIterator, class Size, class T, class T1>
     ForwardIterator __uninitialized_fill_n(ForwardIterator first, Size n, const T &x, T1 *);
@@ -44,7 +45,7 @@ namespace mystl {
 
     template<class ForwardIterator, class Size, class T>
     inline ForwardIterator __uninitialized_fill_n_aux(ForwardIterator first, Size n, const T &x, __true_type) {
-        return std::fill_n(first, n, x);//TODO 用的STL算法
+        return mystl::fill_n(first, n, x);//TODO 用的STL算法
     };
 
     template<class ForwardIterator, class Size, class T>
@@ -81,7 +82,7 @@ namespace mystl {
     template<class ForwardIterator, class InputIterator>
     ForwardIterator
     __uninitialized_copy_aux(InputIterator first, InputIterator last, ForwardIterator result, __true_type) {
-        std::copy(first, last, result);//TODO 用了stl算法
+        mystl::copy(first, last, result);//TODO 用了stl算法
     }
 
     template<class ForwardIterator, class InputIterator, typename T>
@@ -126,7 +127,7 @@ namespace mystl {
 
     template<class ForwardIteraor, class T>
     inline void __uninitialized_fill_aux(ForwardIteraor first, ForwardIteraor last, const T &x, __true_type) {
-        std::fill(first, last, x);//TODO 用了stl算法
+        mystl::fill(first, last, x);//TODO 用了stl算法
     };
 
 /*------------------------------------uninitialized_fill-----------------------------*/
