@@ -6,7 +6,7 @@
 #define STL_TEST_ALGORITHM_H
 #include <cassert>
 #include "test.h"
-#include "../stl_algobase.h"
+#include "../algobase.h"
 namespace AlgorithmTest{
     void testCopy();
     void testCopy_Backward();

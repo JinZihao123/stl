@@ -5,11 +5,11 @@
 #ifndef STL_STL_VECTOR_H
 #define STL_STL_VECTOR_H
 
-#include "stl_iterator.h"
-#include "stl_alloc.h"
-#include "stl_construct.h"
-#include "stl_uninitialized.h"
-#include "stl_algobase.h"
+#include "iterator.h"
+#include "alloc.h"
+#include "construct.h"
+#include "uninitialized.h"
+#include "algobase.h"
 namespace mystl {
     template<class T, class Alloc = alloc>
     class vector {
@@ -152,7 +152,7 @@ namespace mystl {
             construct(finish, *(finish - 1));
             ++finish;
             T x_copy = x;
-            mystl::copy_backward(position, finish - 2, finish - 1);//todo
+            mystl::copy_backward(position, finish - 2, finish - 1);
             *position = x_copy;
         } else {        // 内存不足, 需要重新分配
             // 本实作中是按原内存2倍进行重新分配
@@ -308,8 +308,8 @@ namespace mystl {
                     //这种类就必须用copy construction构造，如果直接调用copy就会析构未初始化的内存！
                     uninitialized_copy(finish - n, finish, finish);
                     finish += n;
-                    mystl::copy_backward(position, old_finish - n, old_finish);//todo
-                    mystl::copy(first, last, position);//todo
+                    mystl::copy_backward(position, old_finish - n, old_finish);
+                    mystl::copy(first, last, position);
                 } else {
                     ForwardIterator mid = first;
                     advance(mid, elems_after);
@@ -317,11 +317,11 @@ namespace mystl {
                     finish += n - elems_after;
                     uninitialized_copy(position, old_finish, finish);
                     finish += elems_after;
-                    mystl::copy(first, mid, position);//todo
+                    mystl::copy(first, mid, position);
                 }
             } else {
                 const size_type old_size = size();
-                const size_type len = old_size + mystl::max(old_size, n);//todo
+                const size_type len = old_size + mystl::max(old_size, n);
                 iterator new_start = data_allocator::allocate(len);
                 iterator new_finish = new_start;
                 new_finish = uninitialized_copy(start, position, new_start);
@@ -389,7 +389,6 @@ namespace mystl {
 
     template<class T, class Alloc>
     inline void vector<T, Alloc>::swap(vector<T, Alloc> &x) {
-        //todo 用了stl算法
         mystl::swap(start, x.start);
         mystl::swap(finish, x.finish);
         mystl::swap(end_of_storage, x.end_of_storage);
@@ -426,18 +425,18 @@ namespace mystl {
                 if (elems_after > n) {
                     uninitialized_copy(finish - n, finish, finish);
                     finish += n;
-                    mystl::copy_backward(position, old_finish - n, old_finish);//todo
-                    mystl::fill(position, position + n, x_copy);//todo
+                    mystl::copy_backward(position, old_finish - n, old_finish);
+                    mystl::fill(position, position + n, x_copy);
                 } else {
                     uninitialized_fill_n(finish, n - elems_after, x_copy);
                     finish += n - elems_after;
                     uninitialized_copy(position, old_finish, finish);
                     finish += elems_after;
-                    mystl::fill(position, old_finish, x_copy);//todo
+                    mystl::fill(position, old_finish, x_copy);
                 }
             } else {      // 剩下的内存不够分配, 需要重新分配
                 const size_type old_size = size();
-                const size_type len = old_size + mystl::max(old_size, n);//todo
+                const size_type len = old_size + mystl::max(old_size, n);
                 iterator new_start = data_allocator::allocate(len);
                 iterator new_finish = new_start;
                 new_finish = uninitialized_copy(start, position, new_start);
@@ -460,7 +459,7 @@ namespace mystl {
 
     template<class T, class Alloc>
     inline typename vector<T, Alloc>::iterator vector<T, Alloc>::erase(vector::iterator first, vector::iterator last) {
-        iterator i = mystl::copy(last, finish, first);//todo
+        iterator i = mystl::copy(last, finish, first);
         destroy(i, finish);
         finish = finish - (last - first);
         return first;
@@ -470,7 +469,7 @@ namespace mystl {
     template<class T, class Alloc>
     inline typename vector<T, Alloc>::iterator vector<T, Alloc>::erase(vector::iterator position) {
         if (position + 1 != cend()) {
-            mystl::copy(position + 1, finish, position);//todo
+            mystl::copy(position + 1, finish, position);
         }
         --finish;
         destroy(finish);

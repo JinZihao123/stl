@@ -44,10 +44,10 @@ namespace mystl {
     template<class T>
     struct iterator_traits {
         typedef typename T::iterator_category iterator_category;
-        typedef typename T::T value_type;
-        typedef typename T::Distance difference_type;
-        typedef typename T::Pointer pointer;
-        typedef typename T::Reference reference;
+        typedef typename T::value_type value_type;
+        typedef typename T::difference_type difference_type;
+        typedef typename T::pointer pointer;
+        typedef typename T::reference reference;
     };
 //针对原生指针的两个偏特化版本
     template<class T>

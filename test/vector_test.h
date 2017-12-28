@@ -4,7 +4,7 @@
 
 #ifndef STL_VECTOR_TEST_H
 #define STL_VECTOR_TEST_H
-#include "../stl_vector.h"
+#include "../vector.h"
 #include "test.h"
 
 #include <vector>
