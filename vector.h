@@ -1,7 +1,13 @@
 //
 // Created by jzh on 17-12-21.
 //
-
+// 没有实现的功能：
+// vector<string> 类型的构造函数
+// 移动构造函数
+// 反向迭代器
+// resize()
+// 大括号列表初始化
+//
 #ifndef STL_STL_VECTOR_H
 #define STL_STL_VECTOR_H
 
@@ -29,14 +35,10 @@ namespace mystl {
         iterator finish;              // 当前使用的内存空间结束点
         iterator end_of_storage;      // 实际分配内存空间的结束点
         void insert_aux(iterator position, const T &x);
-
         void deallocate();
-
         template<class ForwardIterator>
         iterator allocate_and_copy(size_type n, ForwardIterator first, ForwardIterator last);
-
         iterator allocate_and_copy(size_type n, const_iterator it1, const_iterator it2);
-
         iterator allocate_and_fill(size_type n, const T &x);
 /*------------------------------------initialize------------------------------------*/
 //fill_initialize
@@ -126,6 +128,7 @@ namespace mystl {
         void push_back(const T &x);
 
         void pop_back();//对空的vec调用pop_back是未定义的行为，非常危险
+
         //交换两个vector, 实际上是交换内部的状态指针
         void swap(vector<T, Alloc> &x);
 
