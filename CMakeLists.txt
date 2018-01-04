@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.9)
 project(STL)
 
 set(CMAKE_CXX_STANDARD 11)
-add_library(mystl alloc.h iterator.h type_traits.h construct.h uninitialized.h vector.h hello.cpp algobase.h list.h heap.h priority_queue.h)
+add_library(mystl alloc.h iterator.h type_traits.h construct.h uninitialized.h vector.h hello.cpp algobase.h list.h heap.h priority_queue.h functional.h hashtable.h)
 #add_executable(test_all test/testall.cpp test/test.h test/vector_test.cpp)
 #target_link_libraries(test_all mystl)
 add_executable(test_vector  test/vector_test.cpp)

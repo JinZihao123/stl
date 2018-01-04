@@ -4,7 +4,6 @@
 // 没有实现的功能：
 // vector<string> 类型的构造函数
 // 移动构造函数
-// 反向迭代器
 // resize()
 // 大括号列表初始化
 //
@@ -29,6 +28,10 @@ namespace mystl {
         typedef const value_type &  const_reference;
         typedef size_t              size_type;
         typedef ptrdiff_t           difference_type;
+        typedef const reverse_iterator_base<const_iterator, value_type, const_reference,
+                difference_type>  const_reverse_iterator;
+        typedef reverse_iterator_base<iterator, value_type, reference, difference_type>
+                reverse_iterator;
     protected:
         typedef simple_alloc<T, Alloc> data_allocator;
         iterator start;               // 内存空间起始点
@@ -78,9 +81,17 @@ namespace mystl {
 
         const_iterator cbegin() const { return start; }
 
+        reverse_iterator rbegin() { return reverse_iterator(end());}
+
+        const_reverse_iterator crbegin()const { return const_reverse_iterator(cend());}
+
         iterator end() { return finish; }
 
         const_iterator cend() const { return finish; }
+
+        reverse_iterator rend() { return reverse_iterator(begin());}
+
+        const_reverse_iterator crend()const { return const_reverse_iterator(cbegin());}
 
         size_type size() const { return size_type(finish - start); }
 

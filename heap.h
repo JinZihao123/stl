@@ -66,7 +66,7 @@ namespace mystl {
                   RandomAccessIterator last, Compare comp,
                   Distance *, T *)
     {
-        __push_heap(first, Distance((last - first) - 1), Distance(0),
+        mystl::__push_heap(first, Distance((last - first) - 1), Distance(0),
                     T(*(last - 1)), comp);
     }
 
@@ -116,7 +116,7 @@ namespace mystl {
     pop_heap_aux(RandomAccessIterator first, RandomAccessIterator last,
                    T*)
     {
-        __pop_heap(first, last - 1, last - 1,
+        mystl::__pop_heap(first, last - 1, last - 1,
                    T(*(last - 1)), difference_type(first));
     }
     //仅仅是把first和last之间的数据做调整没有真正移除元素，first的元素移到了last-1的位置，剩余元素还是堆
